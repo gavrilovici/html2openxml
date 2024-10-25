@@ -23,4 +23,8 @@
     <EmbeddedResource Include="Resources\*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Resources\TableCellWidth.html" />
+  </ItemGroup>
+
 </Project>

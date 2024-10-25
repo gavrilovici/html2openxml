@@ -1,4 +1,4 @@
-/* Copyright (C) Olivier Nizet https://github.com/onizet/html2openxml - All Rights Reserved
+﻿/* Copyright (C) Olivier Nizet https://github.com/onizet/html2openxml - All Rights Reserved
  * 
  * This source is subject to the Microsoft Permissive License.
  * Please see the License.txt file for more information.
@@ -10,6 +10,7 @@
  * PARTICULAR PURPOSE.
  */
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using AngleSharp.Html.Dom;
 using DocumentFormat.OpenXml;
@@ -79,6 +80,28 @@ sealed class TableCellExpression(IHtmlTableCellElement node) : TableElementExpre
                     break;
             }
         }
+
+        // Manage table cell width
+        var width = styleAttributes!.GetUnit("width");
+        switch (width.Type)
+        {
+            case UnitMetric.Percent:
+                cellProperties.TableCellWidth = new()
+                {
+                    Type = TableWidthUnitValues.Pct,
+                    Width = (width.Value * 50).ToString(CultureInfo.InvariantCulture)
+                };
+                break;
+            case UnitMetric.Point:
+            case UnitMetric.Pixel:
+                cellProperties.TableCellWidth = new()
+                {
+                    Type = TableWidthUnitValues.Dxa,
+                    Width = width.ValueInDxa.ToString(CultureInfo.InvariantCulture)
+                };
+                break;
+        }
+
     }
 
     /// <summary>
