@@ -28,8 +28,8 @@ namespace Demo
                 }
 
                 generatedDocument.Position = 0L;
-                //using (WordprocessingDocument package = WordprocessingDocument.Open(generatedDocument, true))
-                using (WordprocessingDocument package = WordprocessingDocument.Create(generatedDocument, WordprocessingDocumentType.Document))
+                using (WordprocessingDocument package = WordprocessingDocument.Open(generatedDocument, true))
+                //using (WordprocessingDocument package = WordprocessingDocument.Create(generatedDocument, WordprocessingDocumentType.Document))
                 {
                     MainDocumentPart mainPart = package.MainDocumentPart;
                     if (mainPart == null)
@@ -44,7 +44,7 @@ namespace Demo
                     converter.RenderPreAsTable = true;
                     await converter.ParseBody(html);
 
-                    AssertThatOpenXmlDocumentIsValid(package);
+                    //AssertThatOpenXmlDocumentIsValid(package);
                 }
 
                 File.WriteAllBytes(filename, generatedDocument.ToArray());

@@ -1,4 +1,4 @@
-/* Copyright (C) Olivier Nizet https://github.com/onizet/html2openxml - All Rights Reserved
+﻿/* Copyright (C) Olivier Nizet https://github.com/onizet/html2openxml - All Rights Reserved
  * 
  * This source is subject to the Microsoft Permissive License.
  * Please see the License.txt file for more information.
@@ -23,7 +23,7 @@ namespace HtmlToOpenXml.Expressions;
 /// Process the parsing of block contents (like <c>p</c>, <c>span</c>, <c>heading</c>).
 /// A block-level element always starts on a new line, and the browsers automatically add some space (a margin) before and after the element.
 /// </summary>
-class BlockElementExpression: PhrasingElementExpression
+class BlockElementExpression : PhrasingElementExpression
 {
     private readonly OpenXmlLeafElement[]? defaultStyleProperties;
     protected readonly ParagraphProperties paraProperties = new();
@@ -44,7 +44,7 @@ class BlockElementExpression: PhrasingElementExpression
 
 
     /// <inheritdoc/>
-    public override IEnumerable<OpenXmlElement> Interpret (ParsingContext context)
+    public override IEnumerable<OpenXmlElement> Interpret(ParsingContext context)
     {
         var childElements = base.Interpret(context);
 
@@ -59,10 +59,11 @@ class BlockElementExpression: PhrasingElementExpression
         }
 
         if (!renderAsFramed)
-            return childElements;
+            return CheckPageOrientation(context, childElements);
 
         var paragraphs = childElements.OfType<Paragraph>();
-        if (!paragraphs.Any()) return childElements;
+        if (!paragraphs.Any())
+            return CheckPageOrientation(context, childElements);
 
         // if we have only 1 paragraph, just inline the styles
         if (paragraphs.Count() == 1)
@@ -72,7 +73,8 @@ class BlockElementExpression: PhrasingElementExpression
             if (!styleBorder.IsEmpty && p.ParagraphProperties?.ParagraphBorders is null)
             {
                 p.ParagraphProperties ??= new();
-                p.ParagraphProperties!.ParagraphBorders = new ParagraphBorders {
+                p.ParagraphProperties!.ParagraphBorders = new ParagraphBorders
+                {
                     LeftBorder = Converter.ToBorder<LeftBorder>(styleBorder.Left),
                     RightBorder = Converter.ToBorder<RightBorder>(styleBorder.Right),
                     TopBorder = Converter.ToBorder<TopBorder>(styleBorder.Top),
@@ -87,11 +89,54 @@ class BlockElementExpression: PhrasingElementExpression
         return [CreateFrame(childElements)];
     }
 
-    protected override IEnumerable<OpenXmlElement> Interpret (
+    protected SectionProperties GetSectionProperties(ParsingContext context, PageOrientationValues orientation)
+    {
+        var validSectionProp = BodyExpression.ChangePageOrientation(orientation);
+        var sectionProperties = context.MainPart.Document.Body!.GetFirstChild<SectionProperties>();
+        if (sectionProperties == null)
+            return validSectionProp;
+        else
+            sectionProperties = (SectionProperties)sectionProperties.CloneNode(true);
+
+        var pageSize = sectionProperties.GetFirstChild<PageSize>();
+        pageSize?.Remove();
+        sectionProperties.PrependChild(validSectionProp.GetFirstChild<PageSize>()!.CloneNode(true));
+        return sectionProperties;
+    }
+
+    protected IEnumerable<OpenXmlElement> CheckPageOrientation(ParsingContext context, IEnumerable<OpenXmlElement> childElements)
+    {
+        if (node is AngleSharp.Html.Dom.IHtmlBodyElement)
+            return childElements;
+
+        if (childElements.Count() == 0)
+            return childElements;
+
+        string? attr = styleAttributes!["page-orientation"];
+        if (attr != null && childElements.Count() > 0)
+        {
+            PageOrientationValues desiredOrientation = Converter.ToPageOrientation(attr);
+            PageOrientationValues currentOrientation = PageOrientationValues.Portrait;
+            var pageSize = context.MainPart.Document.Body!.GetFirstChild<SectionProperties>()!.GetFirstChild<PageSize>();
+            if (pageSize != null && pageSize.Orient != null && pageSize.Orient.HasValue)
+                currentOrientation = pageSize.Orient.Value;
+
+            List<OpenXmlElement> result = new List<OpenXmlElement>(childElements.Count() + 2);
+            result.Add(GetSectionProperties(context, currentOrientation));
+            result.AddRange(childElements);
+            result.Add(GetSectionProperties(context, desiredOrientation));
+            return result;
+        }
+
+        return childElements;
+    }
+
+    protected override IEnumerable<OpenXmlElement> Interpret(
         ParsingContext context, IEnumerable<AngleSharp.Dom.INode> childNodes)
     {
         return ComposeChildren(context, childNodes, paraProperties,
-            (runs) => {
+            (runs) =>
+            {
                 if ("always".Equals(styleAttributes!["page-break-before"], StringComparison.OrdinalIgnoreCase))
                 {
                     runs.Add(
@@ -103,7 +148,8 @@ class BlockElementExpression: PhrasingElementExpression
                     );
                 }
             },
-            (runs) => {
+            (runs) =>
+            {
                 if ("always".Equals(styleAttributes!["page-break-after"], StringComparison.OrdinalIgnoreCase))
                 {
                     runs.Add(new Run(
@@ -135,7 +181,7 @@ class BlockElementExpression: PhrasingElementExpression
     }
 
     /// <inheritdoc/>
-    protected override void ComposeStyles (ParsingContext context)
+    protected override void ComposeStyles(ParsingContext context)
     {
         base.ComposeStyles(context);
 
@@ -162,8 +208,10 @@ class BlockElementExpression: PhrasingElementExpression
 
         // according to w3c, dir should be used in conjonction with lang. But whatever happens, we'll apply the RTL layout
         var dir = node.GetTextDirection();
-        if (dir.HasValue) {
-            paraProperties.BiDi = new() {
+        if (dir.HasValue)
+        {
+            paraProperties.BiDi = new()
+            {
                 Val = OnOffValue.FromBoolean(dir == AngleSharp.Dom.DirectionMode.Rtl)
             };
         }
@@ -194,7 +242,7 @@ class BlockElementExpression: PhrasingElementExpression
         }
 
         var margin = styleAttributes.GetMargin("margin");
-         Indentation? indentation = null;
+        Indentation? indentation = null;
         if (!margin.IsEmpty)
         {
             if (margin.Top.IsFixed || margin.Bottom.IsFixed)
@@ -234,7 +282,7 @@ class BlockElementExpression: PhrasingElementExpression
         }
 
         var lineHeight = styleAttributes.GetUnit("line-height");
-        if (!lineHeight.IsValid 
+        if (!lineHeight.IsValid
             && "normal".Equals(styleAttributes["line-height"], StringComparison.OrdinalIgnoreCase))
         {
             // if `normal` is specified, reset any values
@@ -247,7 +295,8 @@ class BlockElementExpression: PhrasingElementExpression
             {
                 // auto should be considered as 240ths of a line
                 // https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.spacingbetweenlines.line?view=openxml-3.0.1
-                paraProperties.SpacingBetweenLines = new() {
+                paraProperties.SpacingBetweenLines = new()
+                {
                     LineRule = LineSpacingRuleValues.Auto,
                     Line = Math.Round(lineHeight.Value * 240).ToString(CultureInfo.InvariantCulture)
                 };
@@ -256,7 +305,8 @@ class BlockElementExpression: PhrasingElementExpression
             {
                 // percentage depends on the font size which is hard to determine here
                 // let's rely this to "auto" behaviour
-                paraProperties.SpacingBetweenLines = new() {
+                paraProperties.SpacingBetweenLines = new()
+                {
                     LineRule = LineSpacingRuleValues.Auto,
                     Line = Math.Round(lineHeight.Value / 100 * 240).ToString(CultureInfo.InvariantCulture)
                 };
@@ -264,7 +314,8 @@ class BlockElementExpression: PhrasingElementExpression
             else
             {
                 // twentieths of a point
-                paraProperties.SpacingBetweenLines = new() {
+                paraProperties.SpacingBetweenLines = new()
+                {
                     LineRule = LineSpacingRuleValues.Exact,
                     Line = Math.Round(lineHeight.ValueInPoint * 20).ToString(CultureInfo.InvariantCulture)
                 };
@@ -283,7 +334,7 @@ class BlockElementExpression: PhrasingElementExpression
     /// <param name="paragraphProperties">The parent paragraph properties to apply.</param>
     /// <param name="preAction">Optionally insert new runs at the beginning of the processing.</param>
     /// <param name="postAction">Optionally insert new runs at the end of the processing.</param>
-    internal static IEnumerable<OpenXmlElement> ComposeChildren(ParsingContext context, 
+    internal static IEnumerable<OpenXmlElement> ComposeChildren(ParsingContext context,
         IEnumerable<AngleSharp.Dom.INode> childNodes,
         ParagraphProperties paragraphProperties,
         Action<IList<OpenXmlElement>>? preAction = null,
@@ -297,11 +348,17 @@ class BlockElementExpression: PhrasingElementExpression
         OpenXmlElement? previousElement = null;
         foreach (var child in childNodes)
         {
-            var expression = CreateFromHtmlNode (child);
+            var expression = CreateFromHtmlNode(child);
             if (expression == null) continue;
 
             foreach (var element in expression.Interpret(context))
             {
+                if (element is SectionProperties)
+                {
+                    flowElements.Add(new Paragraph(new ParagraphProperties(element)));
+                    continue;
+                }
+
                 context.CascadeStyles(element);
                 if (element is Run r || element is Hyperlink)
                 {
@@ -341,7 +398,7 @@ class BlockElementExpression: PhrasingElementExpression
     {
         Paragraph p = new();
         if (paraProperties.HasChildren)
-            p.ParagraphProperties = (ParagraphProperties) paraProperties.CloneNode(true);
+            p.ParagraphProperties = (ParagraphProperties)paraProperties.CloneNode(true);
 
         context.CascadeStyles(p);
 
@@ -368,7 +425,8 @@ class BlockElementExpression: PhrasingElementExpression
         TableCell cell;
         TableProperties tableProperties;
         Table framedTable = new(
-            tableProperties = new TableProperties {
+            tableProperties = new TableProperties
+            {
                 TableWidth = new() { Type = TableWidthUnitValues.Pct, Width = "5000" } // 100%
             },
             new TableGrid(
@@ -380,7 +438,8 @@ class BlockElementExpression: PhrasingElementExpression
 
         if (!styleBorder.IsEmpty)
         {
-            tableProperties.TableBorders = new TableBorders {
+            tableProperties.TableBorders = new TableBorders
+            {
                 LeftBorder = Converter.ToBorder<LeftBorder>(styleBorder.Left),
                 RightBorder = Converter.ToBorder<RightBorder>(styleBorder.Right),
                 TopBorder = Converter.ToBorder<TopBorder>(styleBorder.Top),
@@ -390,7 +449,7 @@ class BlockElementExpression: PhrasingElementExpression
 
         if (runProperties.Shading != null)
         {
-            cell.TableCellProperties = new() { Shading = (Shading?) runProperties.Shading.Clone() };
+            cell.TableCellProperties = new() { Shading = (Shading?)runProperties.Shading.Clone() };
         }
 
         return framedTable;

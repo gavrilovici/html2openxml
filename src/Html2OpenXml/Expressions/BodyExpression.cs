@@ -1,4 +1,4 @@
-/* Copyright (C) Olivier Nizet https://github.com/onizet/html2openxml - All Rights Reserved
+﻿/* Copyright (C) Olivier Nizet https://github.com/onizet/html2openxml - All Rights Reserved
  * 
  * This source is subject to the Microsoft Permissive License.
  * Please see the License.txt file for more information.
@@ -99,7 +99,7 @@ sealed class BodyExpression(IHtmlElement node, ParagraphStyleId? defaultStyle)
     /// <summary>
     /// Generate the required OpenXml element for handling page orientation.
     /// </summary>
-    private static SectionProperties ChangePageOrientation(PageOrientationValues orientation)
+    public static SectionProperties ChangePageOrientation(PageOrientationValues orientation)
     {
         PageSize pageSize = new() { Width = (UInt32Value) 16838U, Height = (UInt32Value) 11906U };
         if (orientation == PageOrientationValues.Portrait)
